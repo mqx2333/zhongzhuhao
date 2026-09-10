@@ -45,6 +45,7 @@ DOCUMENT_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:r><w:rPr><w:em w:val="dot"/><w:color w:val="0000FF"/></w:rPr><w:t>又蓝又着重</w:t></w:r>
       <w:r><w:t>。</w:t></w:r>
     </w:p>
+    <w:p><w:r><w:rPr><w:color w:val="000000"/></w:rPr><w:t>黑色默认文字</w:t></w:r></w:p>
     <w:p><w:r><w:t>没有任何着重号的一段。</w:t></w:r></w:p>
   </w:body>
 </w:document>
@@ -99,6 +100,23 @@ def test_extract_only_emphasis(tmp_path):
     make_docx(docx)
     segs = extract_segments(docx, want_color=False)
     assert [s.text for s in segs] == ["着重强调", "着重", "又蓝又着重"]
+
+
+def test_black_is_ignored_by_default(tmp_path):
+    docx = tmp_path / "sample.docx"
+    make_docx(docx)
+
+    # 默认忽略 #000000：不应出现“黑色默认文字”的标注段
+    texts = [s.text for s in extract_segments(docx)]
+    assert "黑色默认文字" not in texts
+    # 红色/蓝色仍保留
+    assert "红色文字" in texts
+    assert "又蓝又着重" in texts
+
+    # 显式关闭过滤后，黑色会被保留
+    segs = extract_segments(docx, ignore_colors=())
+    black = [s for s in segs if s.text == "黑色默认文字"]
+    assert black and black[0].annot.color == "#000000"
 
 
 def test_process_markdown(tmp_path):
@@ -197,6 +215,7 @@ if __name__ == "__main__":
     tmp_tests = {
         test_extract_segments,
         test_extract_only_emphasis,
+        test_black_is_ignored_by_default,
         test_process_markdown,
         test_no_style,
         test_process_html,
@@ -204,6 +223,7 @@ if __name__ == "__main__":
     tests = [
         test_extract_segments,
         test_extract_only_emphasis,
+        test_black_is_ignored_by_default,
         test_process_markdown,
         test_no_style,
         test_process_html,

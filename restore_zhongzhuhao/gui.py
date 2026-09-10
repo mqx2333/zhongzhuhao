@@ -24,6 +24,7 @@ from tkinter import font as tkfont
 
 from .core import (
     DEFAULT_EMPHASIS_CLASS,
+    DEFAULT_IGNORE_COLORS,
     Options,
     process,
     run_pandoc,
@@ -64,6 +65,7 @@ class App:
         self.color_var = tk.BooleanVar(value=True)
         self.style_var = tk.BooleanVar(value=True)
         self.class_var = tk.StringVar(value=DEFAULT_EMPHASIS_CLASS)
+        self.ignore_colors_var = tk.StringVar(value=",".join(DEFAULT_IGNORE_COLORS))
         self.format_var = tk.StringVar(value="markdown")
         self.status_var = tk.StringVar(value="就绪")
 
@@ -169,7 +171,12 @@ class App:
         ttk.Checkbutton(sw, text="注入样式", variable=self.style_var,
                         style="Card.TCheckbutton").pack(side="left", padx=(0, 14))
         ttk.Label(sw, text="着重号 class：", style="Card.TLabel").pack(side="left")
-        ttk.Entry(sw, textvariable=self.class_var, width=14).pack(side="left")
+        ttk.Entry(sw, textvariable=self.class_var, width=12).pack(side="left")
+
+        sw2 = ttk.Frame(c2, style="Card.TFrame")
+        sw2.pack(fill="x", pady=(8, 0))
+        ttk.Label(sw2, text="忽略颜色（默认黑/白，逗号分隔）：", style="Card.TLabel").pack(side="left")
+        ttk.Entry(sw2, textvariable=self.ignore_colors_var, width=24).pack(side="left")
 
         # 效果图例
         c3 = self._card(body, "渲染效果示意")
@@ -303,11 +310,18 @@ class App:
             messagebox.showerror("错误", "请指定输出文件。")
             return
 
+        ignore_colors = []
+        for c in self.ignore_colors_var.get().split(","):
+            c = c.strip().lstrip("#")
+            if c:
+                ignore_colors.append("#" + c.upper())
+
         opts = Options(
             emphasis=self.emphasis_var.get(),
             color=self.color_var.get(),
             emphasis_class=self.class_var.get().strip() or DEFAULT_EMPHASIS_CLASS,
             inject_style=self.style_var.get(),
+            ignore_colors=tuple(ignore_colors),
         )
         fmt = self.format_var.get()
         pandoc_bin = self.pandoc_var.get().strip() or "pandoc"

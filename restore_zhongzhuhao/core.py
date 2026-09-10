@@ -25,6 +25,10 @@ from lxml import etree
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 DEFAULT_EMPHASIS_CLASS = "zhongzhuhao"
 
+# 默认忽略的颜色：黑色（常见的默认文字色）与白色（白底不可见）。
+# Word 经常给普通正文 run 显式写入 w:color val="000000"，若不过滤会把整篇“染黑”。
+DEFAULT_IGNORE_COLORS = ("#000000", "#FFFFFF")
+
 WS_RE = re.compile(r"\s+")
 BLANK_LINE_RE = re.compile(r"\n[ \t]*\n")
 HEX6_RE = re.compile(r"^[0-9a-fA-F]{6}$")
@@ -80,6 +84,7 @@ class Options:
     emphasis_class: str = DEFAULT_EMPHASIS_CLASS
     inject_style: bool = True
     css: str | None = None
+    ignore_colors: tuple[str, ...] = DEFAULT_IGNORE_COLORS
 
 
 # --------------------------------------------------------------------------- #
@@ -114,11 +119,14 @@ def extract_segments(
     docx_path: str | Path,
     want_emphasis: bool = True,
     want_color: bool = True,
+    ignore_colors: tuple[str, ...] = DEFAULT_IGNORE_COLORS,
 ) -> list[Segment]:
     """按文档顺序提取所有带标注的文字段。
 
     同段落内相邻、且标注完全相同的 run 会合并为一段。
+    ``ignore_colors`` 中的颜色（默认黑、白）会被忽略，避免把默认正文色当成标注。
     """
+    ignore = {c.upper() for c in ignore_colors}
     docx_path = Path(docx_path)
     with zipfile.ZipFile(docx_path) as zf:
         try:
@@ -138,9 +146,12 @@ def extract_segments(
         for run in para.iter(wtag("r")):
             text = "".join((t.text or "") for t in run.iter(wtag("t")))
             rpr = run.find(wtag("rPr"))
+            color = _run_color(rpr) if want_color else None
+            if color is not None and color.upper() in ignore:
+                color = None
             annot = Annotation(
                 emphasis=_run_emphasis(rpr) if want_emphasis else False,
-                color=_run_color(rpr) if want_color else None,
+                color=color,
             )
             if annot.is_empty():
                 if cur is not None:
@@ -354,7 +365,9 @@ def process_markdown(
     dry_run: bool = False,
 ) -> tuple[str, dict]:
     """完整处理：提取标注 -> 包裹 -> 注入样式。返回 (最终 Markdown, 统计)。"""
-    segments = extract_segments(docx_path, options.emphasis, options.color)
+    segments = extract_segments(
+        docx_path, options.emphasis, options.color, options.ignore_colors
+    )
     new_md, stats = wrap_segments(
         markdown, segments, options.emphasis_class, dry_run=dry_run
     )

@@ -6,7 +6,13 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .core import DEFAULT_EMPHASIS_CLASS, Options, process, run_pandoc
+from .core import (
+    DEFAULT_EMPHASIS_CLASS,
+    DEFAULT_IGNORE_COLORS,
+    Options,
+    process,
+    run_pandoc,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +34,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--emphasis-class", default=DEFAULT_EMPHASIS_CLASS,
                         help="着重号 span 的 class 名（默认 %s）" % DEFAULT_EMPHASIS_CLASS)
     parser.add_argument("--css", default=None, help="自定义 .zhongzhuhao 样式")
+    parser.add_argument("--ignore-colors", default=",".join(DEFAULT_IGNORE_COLORS),
+                        help="忽略的颜色（逗号分隔，默认 %s）；传空串表示不过滤"
+                             % ",".join(DEFAULT_IGNORE_COLORS))
     parser.add_argument("--no-style", action="store_true", help="不注入样式块")
     parser.add_argument("--dry-run", action="store_true", help="只打印将处理的短语，不写文件")
     parser.add_argument("--encoding", default="utf-8", help="文件读写编码（默认 utf-8）")
@@ -37,12 +46,19 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
 
+    ignore_colors = tuple(
+        ("#" + c.strip().lstrip("#").upper()) if c.strip() else ""
+        for c in args.ignore_colors.split(",")
+    )
+    ignore_colors = tuple(c for c in ignore_colors if c)
+
     opts = Options(
         emphasis=not args.no_emphasis,
         color=not args.no_color,
         emphasis_class=args.emphasis_class,
         inject_style=not args.no_style,
         css=args.css,
+        ignore_colors=ignore_colors,
     )
 
     default_ext = ".html" if args.format == "html" else ".md"

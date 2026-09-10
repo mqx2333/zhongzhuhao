@@ -4,6 +4,7 @@
 from .core import (
     Annotation,
     DEFAULT_EMPHASIS_CLASS,
+    DEFAULT_IGNORE_COLORS,
     Options,
     Segment,
     default_css,
@@ -17,11 +18,12 @@ from .core import (
     wrap_segments,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 __all__ = [
     "Annotation",
     "DEFAULT_EMPHASIS_CLASS",
+    "DEFAULT_IGNORE_COLORS",
     "Options",
     "Segment",
     "default_css",

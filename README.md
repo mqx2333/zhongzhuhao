@@ -40,6 +40,7 @@ Word（`.docx`）里会把字符标注存进运行属性（`<w:rPr>`）：
 ## 特性
 
 - ✅ 复原**着重号**（字下加点）与**字体颜色**，两者可叠加
+- ✅ 默认忽略黑色 `#000000` / 白色 `#FFFFFF`，避免把 Word 默认正文色当成标注
 - ✅ 输出 **Markdown**（内联 HTML）或 **HTML**（独立网页，样式自动注入 `<head>`）
 - ✅ 跳过代码块、行内代码、链接，避免破坏 Markdown 语法
 - ✅ 容忍 pandoc 软换行（短语被换行拆开也能匹配）
@@ -109,6 +110,7 @@ python -m restore_zhongzhuhao --docx 原稿.docx --run-pandoc --format html -o �
 | `--to` | pandoc 输出格式，默认 `markdown` |
 | `--no-emphasis` | 不处理着重号 |
 | `--no-color` | 不处理字体颜色 |
+| `--ignore-colors` | 忽略的颜色（逗号分隔），默认 `#000000,#FFFFFF`；传空串即不过滤 |
 | `--emphasis-class` | 着重号 span 的 class 名，默认 `zhongzhuhao` |
 | `--css CSS` | 自定义注入样式 |
 | `--no-style` | 不注入样式块 |
