@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# 工具产物 / 临时文件
+out.md
+out.html
+*.fixed.md
+*.fixed.html
+
+# 测试用样例
+/test/sample.docx
