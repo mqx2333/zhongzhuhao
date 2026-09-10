@@ -18,7 +18,7 @@ from .core import (
     wrap_segments,
 )
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 
 __all__ = [
     "Annotation",

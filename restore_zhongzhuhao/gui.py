@@ -130,8 +130,28 @@ class App:
         tk.Label(header, text="读回 docx 的 w:em 与 w:color，在 Markdown / HTML 中以内联 <span> 补回标注",
                  bg=ACCENT, fg="#dbe6ff", font=(self.family, 9)).pack(anchor="w", padx=20, pady=(0, 12))
 
-        body = ttk.Frame(self.root, padding=12)
-        body.pack(fill="both", expand=True)
+        # 可滚动内容区：小屏幕也能访问到全部控件（含按钮与日志）
+        outer = ttk.Frame(self.root)
+        outer.pack(fill="both", expand=True)
+        outer.rowconfigure(0, weight=1)
+        outer.columnconfigure(0, weight=1)
+        self.canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        vbar = ttk.Scrollbar(outer, orient="vertical", command=self.canvas.yview)
+        vbar.grid(row=0, column=1, sticky="ns")
+        self.canvas.configure(yscrollcommand=vbar.set)
+
+        body = ttk.Frame(self.canvas, padding=12)
+        win = self.canvas.create_window((0, 0), window=body, anchor="nw")
+        body.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
+        )
+        self.canvas.bind(
+            "<Configure>",
+            lambda e: self.canvas.itemconfigure(win, width=e.width),
+        )
+        self.root.bind("<MouseWheel>", self._on_wheel)
 
         # 文件卡片
         c1 = self._card(body, "文件")
@@ -178,9 +198,10 @@ class App:
         ttk.Label(sw2, text="忽略颜色（默认黑/白，逗号分隔）：", style="Card.TLabel").pack(side="left")
         ttk.Entry(sw2, textvariable=self.ignore_colors_var, width=24).pack(side="left")
 
-        # 效果图例
-        c3 = self._card(body, "渲染效果示意")
-        canvas = tk.Canvas(c3, height=46, bg=CARD, highlightthickness=0)
+        # 效果图例（并入选项卡片，紧凑一行）
+        legend = ttk.Frame(c2, style="Card.TFrame")
+        legend.pack(fill="x", pady=(8, 0))
+        canvas = tk.Canvas(legend, height=32, bg=CARD, highlightthickness=0)
         canvas.pack(fill="x")
         self._draw_legend(canvas)
 
@@ -288,6 +309,17 @@ class App:
         self.log.delete("1.0", "end")
         self.log.configure(state="disabled")
 
+    def _on_wheel(self, event) -> None:
+        # 指针在日志上时让日志自己滚动，其余位置滚动整个页面
+        log = getattr(self, "log", None)
+        w = self.root.winfo_containing(event.x_root, event.y_root)
+        while w is not None:
+            if w is log:
+                return
+            w = getattr(w, "master", None)
+        delta = -1 if event.delta > 0 else 1
+        self.canvas.yview_scroll(delta, "units")
+
     def _set_running(self, running: bool) -> None:
         self.run_btn.configure(state="disabled" if running else "normal")
         self.status_var.set("处理中…" if running else "就绪")
@@ -362,7 +394,8 @@ class App:
                     Path(out_path).write_text(result, encoding="utf-8")
                     print("已写入：%s" % out_path)
                     ok = True
-        except Exception:
+        except BaseException:
+            # 注意：core 在 pandoc 失败时会抛 SystemExit，必须一并捕获并显示
             buf.write("\n处理失败：\n")
             buf.write(traceback.format_exc())
         finally:
@@ -396,16 +429,51 @@ def _enable_dpi_awareness() -> None:
         pass
 
 
+def _work_area():
+    """返回 Windows 工作区（不含任务栏）(left, top, right, bottom)，失败返回 None。"""
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class RECT(ctypes.Structure):
+            _fields_ = [
+                ("left", wintypes.LONG),
+                ("top", wintypes.LONG),
+                ("right", wintypes.LONG),
+                ("bottom", wintypes.LONG),
+            ]
+
+        r = RECT()
+        SPI_GETWORKAREA = 0x0030
+        if ctypes.windll.user32.SystemParametersInfoW(
+            SPI_GETWORKAREA, 0, ctypes.byref(r), 0
+        ):
+            return r.left, r.top, r.right, r.bottom
+    except Exception:
+        pass
+    return None
+
+
 def main() -> None:
     _enable_dpi_awareness()
     root = tk.Tk()
     App(root)
     root.update_idletasks()
-    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
-    w = min(820, sw - 40)
-    h = min(660, sh - 70)
-    x = max(0, (sw - w) // 2)
-    y = max(0, (sh - h) // 2 - 10)
+
+    area = _work_area()
+    if area:
+        left, top, right, bottom = area
+        avail_w, avail_h = right - left, bottom - top
+    else:
+        left, top = 0, 0
+        avail_w, avail_h = root.winfo_screenwidth(), root.winfo_screenheight()
+
+    w = min(860, max(600, avail_w - 50))
+    h = min(720, max(440, avail_h - 40))
+    x = left + max(0, (avail_w - w) // 2)
+    y = top + max(0, (avail_h - h) // 2)
     root.geometry("%dx%d+%d+%d" % (w, h, x, y))
     root.mainloop()
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "restore-zhongzhuhao"
-version = "0.5.1"
+version = "0.5.2"
 description = "把 docx 中被 pandoc 忽略的着重号与字体颜色补回 Markdown / HTML"
 readme = "README.md"
 requires-python = ">=3.9"
