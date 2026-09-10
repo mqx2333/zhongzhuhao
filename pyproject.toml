@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "restore-zhongzhuhao"
+version = "0.5.0"
+description = "把 docx 中被 pandoc 忽略的着重号与字体颜色补回 Markdown / HTML"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "mqx2333", email = "mqx1582187266@outlook.com" }]
+keywords = ["pandoc", "docx", "markdown", "html", "zhongzhuhao", "emphasis", "color"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Public Domain",
+    "Operating System :: OS Independent",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+dependencies = ["lxml>=4.9"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+restore-zhongzhuhao = "restore_zhongzhuhao.cli:main"
+
+[project.gui-scripts]
+restore-zhongzhuhao-gui = "restore_zhongzhuhao.gui:main"
+
+[project.urls]
+Homepage = "https://github.com/mqx2333/zhongzhuhao"
+
+[tool.setuptools.packages.find]
+include = ["restore_zhongzhuhao*"]

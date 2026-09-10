@@ -1,33 +1,18 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-restore_zhongzhuhao.py
-======================
+"""核心逻辑：从 docx 提取标注，并在 Markdown 中以内联 HTML 补回。
 
-辅助 pandoc 修复 Word 转换到 Markdown 时丢失的两种字符标注：
+支持两种标注：
 
-    1. 着重号（字下加点）：docx 中的 ``<w:em w:val="dot"/>``
-    2. 字体颜色：        docx 中的 ``<w:color w:val="RRGGBB"/>``
+1. 着重号（字下加点）：docx 中的 ``<w:em w:val="dot"/>``
+2. 字体颜色：        docx 中的 ``<w:color w:val="RRGGBB"/>``
 
-Pandoc 转 Markdown 时会忽略二者，本程序读回 docx 的标注，在 Markdown 中
-用内联 HTML ``<span>`` 补回（Markdown 支持内联 HTML，pandoc 再转 HTML 时原样透传），
+Pandoc 转换时会忽略二者，本模块读回 docx 的标注，在 Markdown 中用内联 HTML
+``<span>`` 补回（Markdown 支持内联 HTML，pandoc 再转 HTML 时原样透传），
 可选注入 ``text-emphasis`` 样式渲染字下加点。
-
-    <span class="zhongzhuhao">着重文字</span>
-    <span style="color:#FF0000">红色文字</span>
-    <span class="zhongzhuhao" style="color:#0000FF">又蓝又着重</span>
-
-用法（CLI）：
-    python restore_zhongzhuhao.py --docx src.docx --markdown pandoc输出.md -o 修复后.md
-    python restore_zhongzhuhao.py --docx src.docx --run-pandoc -o 修复后.md
-
-用法（GUI）：
-    python gui.py
 """
 
 from __future__ import annotations
 
-import argparse
 import re
 import subprocess
 import sys
@@ -436,70 +421,3 @@ def process(
             html = inject_html_style(html, css)
         return html, stats
     return process_markdown(docx_path, source_markdown, options, dry_run=dry_run)
-
-
-# --------------------------------------------------------------------------- #
-# 4. CLI
-# --------------------------------------------------------------------------- #
-def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(
-        description="辅助 pandoc：把 docx 中被忽略的着重号与字体颜色以内联 HTML 补回 Markdown / HTML。"
-    )
-    parser.add_argument("--docx", required=True, help="源 Word .docx 文件")
-    parser.add_argument("--markdown", help="pandoc 生成的 Markdown 文件")
-    parser.add_argument("-o", "--out", help="输出文件；省略则写回 --markdown / 同名")
-    parser.add_argument("--format", choices=["markdown", "html"], default="markdown",
-                        help="输出格式（默认 markdown；html 会用 pandoc 转成独立网页）")
-    parser.add_argument("--run-pandoc", dest="pandoc", nargs="?", const="pandoc",
-                        metavar="PANDOC", help="先调用 pandoc 把 docx 转成 markdown 再修复")
-    parser.add_argument("--pandoc-bin", default="pandoc", help="pandoc 可执行文件（html 转换用）")
-    parser.add_argument("--to", default="markdown", help="pandoc 输出格式（默认 markdown）")
-    parser.add_argument("--no-emphasis", action="store_true", help="不处理着重号")
-    parser.add_argument("--no-color", action="store_true", help="不处理字体颜色")
-    parser.add_argument("--emphasis-class", default=DEFAULT_EMPHASIS_CLASS,
-                        help="着重号 span 的 class 名（默认 %s）" % DEFAULT_EMPHASIS_CLASS)
-    parser.add_argument("--css", default=None, help="自定义 .zhongzhuhao 样式")
-    parser.add_argument("--no-style", action="store_true", help="不注入样式块")
-    parser.add_argument("--dry-run", action="store_true", help="只打印将处理的短语，不写文件")
-    parser.add_argument("--encoding", default="utf-8", help="文件读写编码（默认 utf-8）")
-    args = parser.parse_args(argv)
-
-    opts = Options(
-        emphasis=not args.no_emphasis,
-        color=not args.no_color,
-        emphasis_class=args.emphasis_class,
-        inject_style=not args.no_style,
-        css=args.css,
-    )
-
-    default_ext = ".html" if args.format == "html" else ".md"
-    if args.markdown:
-        markdown = Path(args.markdown).read_text(encoding=args.encoding)
-        out_path = Path(args.out) if args.out else Path(args.markdown).with_suffix(default_ext)
-    elif args.pandoc:
-        markdown = run_pandoc(args.docx, args.pandoc or args.pandoc_bin, args.to)
-        out_path = Path(args.out) if args.out else Path(args.docx).with_suffix(default_ext)
-    else:
-        parser.error("必须提供 --markdown，或使用 --run-pandoc 由程序调用 pandoc")
-
-    print("源 docx: %s" % args.docx)
-    print("输出格式: %s | 开关: 着重号=%s 颜色=%s" % (args.format, opts.emphasis, opts.color))
-
-    result, stats = process(
-        args.docx, markdown, opts,
-        output_format=args.format, pandoc_bin=args.pandoc_bin, dry_run=args.dry_run,
-    )
-    print("已包裹 %d 个（着重号 %d / 颜色 %d），未命中 %d 个。" % (
-        stats["wrapped"], stats["by_type"]["emphasis"], stats["by_type"]["color"],
-        len(stats["missed"])))
-
-    if args.dry_run:
-        return 0
-
-    out_path.write_text(result, encoding=args.encoding)
-    print("已写入: %s" % out_path)
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

@@ -1,14 +1,25 @@
-# restore_zhongzhuhao
+# restore-zhongzhuhao
 
-辅助 **pandoc** 修复 Word(docx) 转换时丢失的字符标注，输出 **Markdown 或 HTML**：
+> 把 Word(docx) 转 Markdown 时被 pandoc 丢掉的 **着重号（字下加点）** 和 **字体颜色** 自动补回来。
 
-- **着重号（字下加点）**：docx 的 `<w:em w:val="dot"/>`
-- **字体颜色**：docx 的 `<w:color w:val="RRGGBB"/>`
+[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#)
 
-pandoc 转换时会忽略这两者。本程序读回 docx 的标注，在 Markdown 中用内联 HTML
-`<span>` 补回（Markdown 支持内联 HTML，pandoc 再转 HTML 时原样透传）；
-也可直接输出成品 HTML（内部用 pandoc 转换并把样式注入 `<head>`）。
-可选注入 `text-emphasis` 样式渲染字下加点。
+---
+
+## 它解决什么问题
+
+Word（`.docx`）里会把字符标注存进运行属性（`<w:rPr>`）：
+
+| 标注 | docx 中的表示 | pandoc 转 Markdown/HTML 时 |
+| --- | --- | --- |
+| 着重号（字下加点） | `<w:em w:val="dot"/>` | **被忽略**，退化为普通文本 |
+| 字体颜色 | `<w:color w:val="FF0000"/>` | **被忽略**，退化为普通文本 |
+
+结果就是转换后的文档丢失了强调信息。本工具读回 docx 的标注，在 Markdown 中
+用内联 HTML `<span>` 复原（Markdown 支持内联 HTML，pandoc 再转 HTML 时原样透传），
+也可一步直接产出成品 HTML。
 
 ```html
 <span class="zhongzhuhao">着重文字</span>
@@ -16,15 +27,35 @@ pandoc 转换时会忽略这两者。本程序读回 docx 的标注，在 Markdo
 <span class="zhongzhuhao" style="color:#0000FF">又蓝又着重</span>
 ```
 
-## 工作流
+配合注入的 CSS，浏览器即可正确渲染字下加点：
 
+```css
+.zhongzhuhao {
+  text-emphasis-style: dot;
+  text-emphasis-position: under;
+  text-emphasis-color: currentColor;
+}
 ```
-src.docx ──pandoc──> 转出的.md（标注丢失）
-   │
-   └──(可选 --run-pandoc 由程序调用 pandoc)──┘
-                 │
-             修复：读 docx 提取 w:em / w:color → 在 md 中以内联 <span> 包裹 → 修复后.md
-```
+
+## 特性
+
+- ✅ 复原**着重号**（字下加点）与**字体颜色**，两者可叠加
+- ✅ 输出 **Markdown**（内联 HTML）或 **HTML**（独立网页，样式自动注入 `<head>`）
+- ✅ 跳过代码块、行内代码、链接，避免破坏 Markdown 语法
+- ✅ 容忍 pandoc 软换行（短语被换行拆开也能匹配）
+- ✅ 提供**图形界面**（tkinter，零额外依赖）
+- ✅ 命令行 / 模块 / 安装后入口，一应俱全
+- ✅ 结构清晰、易于扩展新标注类型（见 [CHANGELOG.md](CHANGELOG.md)）
+
+## 开发环境
+
+本项目在 **OpenCode + DeepSeek v4.1** 环境下开发完成。
+
+## 环境要求
+
+- Python **3.9+**
+- [pandoc](https://pandoc.org/)（用于 `--run-pandoc` 转换，以及 HTML 输出）
+- 依赖：`lxml`（唯一必需第三方库）
 
 ## 安装
 
@@ -32,9 +63,16 @@ src.docx ──pandoc──> 转出的.md（标注丢失）
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-> 说明：仅 `lxml` 为必需依赖；核心逻辑已不再使用 BeautifulSoup。
+或安装为本地包（提供命令入口）：
 
-## 使用
+```bash
+pip install -e .
+# 之后可用：
+restore-zhongzhuhao --help
+restore-zhongzhuhao-gui
+```
+
+## 快速开始
 
 ### 图形界面
 
@@ -42,21 +80,20 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 python gui.py
 ```
 
-选源 docx、输入 Markdown（或勾选「由 pandoc 生成」），
-选择**输出格式（Markdown / HTML）**，填输出文件，勾选要处理的标注，点「开始处理」。
-界面含渲染效果图例、状态栏与「打开输出位置」。
+选择源 docx、输入 Markdown（或勾选「由 pandoc 生成」），选择**输出格式**，
+填输出文件，勾选要处理的标注，点「开始处理」。
 
 ### 命令行
 
 ```bash
 # 已有 pandoc 生成的 markdown -> 修复为 Markdown
-python restore_zhongzhuhao.py --docx 原稿.docx --markdown pandoc输出.md -o 修复后.md
+python -m restore_zhongzhuhao --docx 原稿.docx --markdown pandoc输出.md -o 修复后.md
 
 # 一键：先调 pandoc 转 markdown（内置 --wrap=none）再修复
-python restore_zhongzhuhao.py --docx 原稿.docx --run-pandoc -o 修复后.md
+python -m restore_zhongzhuhao --docx 原稿.docx --run-pandoc -o 修复后.md
 
-# 直接输出成品 HTML（用 pandoc 转成独立网页）
-python restore_zhongzhuhao.py --docx 原稿.docx --run-pandoc --format html -o 成品.html
+# 直接输出成品 HTML
+python -m restore_zhongzhuhao --docx 原稿.docx --run-pandoc --format html -o 成品.html
 ```
 
 ### 参数
@@ -80,28 +117,63 @@ python restore_zhongzhuhao.py --docx 原稿.docx --run-pandoc --format html -o �
 
 ## 工作原理
 
-1. 用 `zipfile` + `lxml` 读 `word/document.xml`，遍历 `<w:p>/<w:r>`，
-   取每个 run 的 `w:em`（着重号）与 `w:color`（颜色），
-   同段落内相邻且标注相同的 run 合并为一段（`Segment`）。
-2. 读取 Markdown，整篇正则匹配各段文字；短语中的空格可匹配软换行；
+1. **提取**：用 `zipfile` + `lxml` 读 `word/document.xml`，遍历 `<w:p>/<w:r>`，
+   取每个 run 的 `w:em` 与 `w:color`；同段落内相邻且标注相同的 run 合并为一段（`Segment`）。
+2. **匹配**：读取 Markdown 全文，对每个标注段做正则定位；短语中的空格可匹配软换行；
    跳过围栏代码块、行内代码、链接/图片等受保护区域。
-3. 命中处用内联 HTML `<span>`（按需带 `class` / `style`）包裹；可选注入样式。
-4. `--format html` 时，把修复后的 Markdown 交给 pandoc 转成独立 HTML，
-   再把样式注入 `<head>`，输出可直接打开的网页。
+3. **包裹**：命中处以内联 HTML `<span>`（按需带 `class` / `style`）包裹。
+4. **输出**：`--format html` 时再用 pandoc 转成独立 HTML 并把样式注入 `<head>`。
+
+## 项目结构
+
+```
+zhongzhuhao/
+├── gui.py                      # 便捷启动器：python gui.py
+├── restore_zhongzhuhao/        # 主包
+│   ├── __init__.py             # 对外 API
+│   ├── __main__.py             # python -m restore_zhongzhuhao
+│   ├── core.py                 # 核心：提取 / 匹配 / 渲染（无 UI 依赖）
+│   ├── cli.py                  # 命令行入口
+│   └── gui.py                  # tkinter 图形界面
+├── tests/
+│   └── test_core.py            # 端到端测试
+├── README.md
+├── CHANGELOG.md                # 迭代说明 / 修改点
+├── LICENSE                     # The Unlicense（公共领域）
+├── requirements.txt
+└── pyproject.toml
+```
 
 ## 测试
 
 ```bash
-python test/test_zhongzhuhao.py
+python tests/test_core.py
+# 或
+pytest -q
 ```
 
-## 迭代
-
-改动记录、代码结构与「如何新增一种标注」见 [CHANGELOG.md](CHANGELOG.md)。
+测试会手工构造含 `w:em` / `w:color` 的最小 docx，调用 pandoc 转 Markdown，
+再运行修复并断言结果（含代码块/行内代码/链接跳过、软换行、颜色叠加等）。
 
 ## 已知限制
 
-- 假设文档中「该短语首次出现的位置」即 docx 标注的位置（通常成立）。
-- 若 pandoc 引入文本变形（智能引号、破折号、`\*` 转义等），对应短语可能匹配失败并告警跳过。
-- 缩进式代码块（行首 4 空格）未特殊跳过，建议用围栏代码块。
+- 假设「短语在文档中首次出现的位置」即 docx 标注的位置（通常成立）。
+- 若 pandoc 引入文本变形（智能引号、破折号、`\*` 转义等），对应短语会告警并跳过。
+- 缩进式代码块（行首 4 空格）未特殊跳过，建议使用围栏代码块。
 - 跨段落的标注不会合并。
+
+## 迭代说明
+
+改动记录、代码结构，以及「如何新增一种标注（例如粗体/高亮）」的三步指南，
+见 **[CHANGELOG.md](CHANGELOG.md)**。
+
+## 许可证
+
+[**The Unlicense**](LICENSE) —— 本作品已释放至公共领域（Public Domain）。
+你可以任意复制、修改、发布、商用，无需署名，无需承担任何担保。
+这是最开放的开源许可之一。
+
+## 致谢
+
+- [pandoc](https://pandoc.org/) —— 强大的文档转换器
+- [lxml](https://lxml.de/) —— 解析 OOXML

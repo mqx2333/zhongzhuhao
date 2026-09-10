@@ -4,6 +4,28 @@
 
 ---
 
+## v0.5.0 —— 打包重构 + 开源发布
+
+### 变更
+- **重构为包结构**：单文件脚本拆分为 `restore_zhongzhuhao/` 包
+  （`core.py` 纯逻辑、`cli.py` 命令行、`gui.py` 界面），职责分离、便于测试与复用。
+- **入口统一**：
+  - `python -m restore_zhongzhuhao`（CLI，`__main__.py`）
+  - `python gui.py`（顶层便捷启动器 → 包内 GUI）
+  - 安装后：`restore-zhongzhuhao` / `restore-zhongzhuhao-gui`（见 `pyproject.toml`）
+- **测试迁移**：`test/test_zhongzhuhao.py` → `tests/test_core.py`，兼容 pytest。
+- **对外 API**：`__init__.py` 统一导出核心函数与 `__version__`。
+
+### 新增
+- `LICENSE`：采用 **The Unlicense**（公共领域，最开放）。
+- `pyproject.toml`：打包元数据 + console/gui 脚本入口。
+- 更完整的 `README.md`：特性、安装、用法、结构、原理、限制、环境说明。
+
+### 说明
+- 功能行为与 v0.4.0 一致（着重号 + 颜色，Markdown / HTML 输出）。
+
+---
+
 ## v0.4.0 —— HTML 输出 + GUI 美化
 
 ### 新增
@@ -69,19 +91,22 @@
 ## 代码结构
 
 ```
-restore_zhongzhuhao.py
-├── 数据模型        Annotation / Segment / Options
-├── 提取            extract_segments()   ← 读 docx，产出 Segment 列表
-├── Markdown 匹配   mark_fenced_code / protected_ranges / compute_protected
-│                   _pattern_for / _search / _shift_protected
-├── 渲染            _span_open()         ← Annotation → <span ...>
-├── 包裹            wrap_segments()      ← 依序定位并插入 span
-├── 高层入口        process_markdown()   ← 提取 + 包裹 + 注入样式（产出 Markdown）
-│                   process()            ← 按 output_format 分派 md / html
-├── 转换            run_pandoc() / markdown_to_html() / inject_html_style()
-└── CLI             main()
-gui.py              tkinter 界面，调用 process()
-test/test_zhongzhuhao.py
+gui.py                        便捷启动器：python gui.py
+restore_zhongzhuhao/
+├── __init__.py               对外 API + __version__
+├── __main__.py               python -m restore_zhongzhuhao
+├── core.py                   纯逻辑（无 UI 依赖）
+│   ├── 数据模型              Annotation / Segment / Options
+│   ├── 提取                  extract_segments()
+│   ├── Markdown 匹配         mark_fenced_code / protected_ranges / compute_protected
+│   │                         _pattern_for / _search / _shift_protected
+│   ├── 渲染                  _span_open()      ← Annotation → <span ...>
+│   ├── 包裹                  wrap_segments()
+│   ├── 高层入口              process_markdown() / process()
+│   └── 转换                  run_pandoc() / markdown_to_html() / inject_html_style()
+├── cli.py                    命令行入口 main()
+└── gui.py                    tkinter 界面，调用 process()
+tests/test_core.py            端到端测试
 ```
 
 ## 如何新增一种标注（例如粗体、高亮底色）
